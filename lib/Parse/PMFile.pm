@@ -11,8 +11,9 @@ use File::Spec ();
 use File::Temp ();
 use POSIX ':sys_wait_h';
 
-our $VERSION = '0.02';
+our $VERSION = '0.03';
 our $VERBOSE = 0;
+our $ALLOW_DEV_VERSION = 0;
 
 sub new {
     my ($class, $meta) = @_;
@@ -33,7 +34,7 @@ sub parse {
         $self->{VERSION} = $self->_parse_version;
         if ($self->{VERSION} =~ /^\{.*\}$/) {
             # JSON error message
-        } elsif ($self->{VERSION} =~ /[_\s]/){   # ignore developer releases and "You suck!"
+        } elsif ($self->{VERSION} =~ /[_\s]/ && !$ALLOW_DEV_VERSION){   # ignore developer releases and "You suck!"
             return;
         }
     }
@@ -266,7 +267,7 @@ sub _packages_per_pmfile {
                     if (exists $provides->{$pkg}) {
                         if (exists $provides->{$pkg}{version}) {
                             my $v = $provides->{$pkg}{version};
-                            if ($v =~ /[_\s]/){   # ignore developer releases and "You suck!"
+                            if ($v =~ /[_\s]/ && !$ALLOW_DEV_VERSION){   # ignore developer releases and "You suck!"
                                 next PLINE;
                             } else {
                                 $ppp->{$pkg}{version} = $self->_normalize_version($v);
@@ -325,6 +326,7 @@ sub _packages_per_pmfile {
         while (<FH>) {
             $inpod = /^=(?!cut)/ ? 1 : /^=cut/ ? 0 : $inpod;
             next if $inpod || /^\s*#/;
+            last if /\b__(?:END|DATA)__\b/; # fails on quoted __END__ but this is rare
             chop;
             # next unless /\$(([\w\:\']*)\bVERSION)\b.*\=/;
             next unless /([\$*])(([\w\:\']*)\bVERSION)\b.*\=/;
@@ -339,6 +341,7 @@ sub _packages_per_pmfile {
           }; \$$2
       };
             local $^W = 0;
+            local $SIG{__WARN__} = sub {};
             $result = eval($eval);
             # warn "current_parsed_line[$current_parsed_line]\$\@[$@]";
             if ($@ or !defined $result){
@@ -448,7 +451,7 @@ sub _normalize_version {
     # may warn "Integer overflow"
     my $vv = eval { no warnings; version->new($v)->numify };
     if ($@) {
-        warn "$v: $@";
+        # warn "$v: $@";
         return "undef";
     }
     if ($vv eq $v) {
@@ -558,6 +561,16 @@ creates an object. You can also pass a hashref taken from META.yml etc.
 =head2 parse
 
 takes a path to a .pm file, and returns a hash reference that holds information for package(s) found in the file.
+
+=head1 GLOBAL VARIABLES
+
+=head2 $ALLOW_DEV_VERSION
+
+Parse::PMFile usually ignores a version with an underscore as PAUSE does (because it's for a developer release, and should not be indexed). Set this variable to true if you happen to need to keep such a version for better analysis.
+
+=head2 $VERBOSE
+
+Set this to true if you need to know some details.
 
 =head1 SEE ALSO
 
