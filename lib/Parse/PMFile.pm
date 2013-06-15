@@ -11,7 +11,7 @@ use File::Spec ();
 use File::Temp ();
 use POSIX ':sys_wait_h';
 
-our $VERSION = '0.03';
+our $VERSION = '0.04';
 our $VERBOSE = 0;
 our $ALLOW_DEV_VERSION = 0;
 
@@ -155,6 +155,7 @@ sub _parse_version {
                                         '*DynaLoader::']);
             $comp->share_from('version', ['&qv']);
             # $comp->permit("require"); # no strict!
+            $comp->deny(qw/enteriter iter unstack goto/); # minimum protection against Acme::BadExample
             {
                 no strict;
                 $v = $comp->reval($eval);
