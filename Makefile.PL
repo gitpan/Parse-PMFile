@@ -9,7 +9,6 @@ my %params = (
     ABSTRACT_FROM => 'lib/Parse/PMFile.pm',
     LICENSE       => 'perl',
     PREREQ_PM     => {
-        'CPAN::Version' => 0,
         'Dumpvalue' => 0,
         'File::Spec' => 0,
         'File::Temp' => 0,
@@ -27,8 +26,16 @@ my %params = (
     },
 );
 
-my $eumm = $ExtUtils::MakeMaker::VERSION;
+my $eumm = eval $ExtUtils::MakeMaker::VERSION;
 delete $params{LICENSE}          if $eumm < 6.31;
 delete $params{META_MERGE}       if $eumm < 6.46;
+
+if ($eumm < 6.5503 && $params{BUILD_REQUIRES}) {
+    $params{PREREQ_PM} = {
+        %{ $params{PREREQ_PM}      || {} },
+        %{ $params{BUILD_REQUIRES} },
+    };
+    delete $params{BUILD_REQUIRES};
+}
 
 WriteMakefile(%params);
