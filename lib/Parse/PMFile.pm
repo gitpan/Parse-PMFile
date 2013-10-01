@@ -10,7 +10,7 @@ use File::Spec ();
 use File::Temp ();
 use POSIX ':sys_wait_h';
 
-our $VERSION = '0.06';
+our $VERSION = '0.07';
 our $VERBOSE = 0;
 our $ALLOW_DEV_VERSION = 0;
 
@@ -229,6 +229,7 @@ sub _packages_per_pmfile {
         if (
             $pline =~ m{
                       # (.*) # takes too much time if $pline is long
+                      (?<![*\$\\@%&]) # no sigils
                       \bpackage\s+
                       ([\w\:\']+)
                       \s*
