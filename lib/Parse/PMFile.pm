@@ -10,7 +10,7 @@ use File::Spec ();
 use File::Temp ();
 use POSIX ':sys_wait_h';
 
-our $VERSION = '0.08';
+our $VERSION = '0.09';
 our $VERBOSE = 0;
 our $ALLOW_DEV_VERSION = 0;
 
@@ -166,6 +166,7 @@ sub _parse_version {
                 # warn ">>>>>>>err[$err]<<<<<<<<";
                 if (ref $err) {
                     if ($err->{line} =~ /[\$*]([\w\:\']*)\bVERSION\b.*?\=(.*)/) {
+                        local($^W) = 0;
                         $v = $comp->reval($2);
                     }
                     if ($@ or !$v) {
