@@ -10,7 +10,7 @@ use File::Spec ();
 use File::Temp ();
 use POSIX ':sys_wait_h';
 
-our $VERSION = '0.09';
+our $VERSION = '0.10';
 our $VERBOSE = 0;
 our $ALLOW_DEV_VERSION = 0;
 
@@ -70,7 +70,11 @@ sub parse {
         my $pp = $ppp->{$package};
         if ($pp->{version} && $pp->{version} =~ /^\{.*\}$/) { # JSON parser error
             my $err = JSON::PP::decode_json($pp->{version});
-            if ($err->{openerr}) {
+            if ($err->{x_normalize}) {
+                $errors{$package} = {normalize => $err->{version}};
+                $pp->{version} = "undef";
+                next;
+            } elsif ($err->{openerr}) {
                 $self->_verbose(1,
                               qq{Parse::PMFile was not able to
         read the file. It issued the following error: C< $err->{r} >},
@@ -452,11 +456,15 @@ sub _normalize_version {
         # was found".
         return $v ;
     }
+    if (!version::is_lax($v)) {
+        return JSON::PP::encode_json({ x_normalize => 'version::is_lax failed', version => $v });
+    }
     # may warn "Integer overflow"
     my $vv = eval { no warnings; version->new($v)->numify };
     if ($@) {
         # warn "$v: $@";
-        return "undef";
+        return JSON::PP::encode_json({ x_normalize => $@, version => $v });
+        # return "undef";
     }
     if ($vv eq $v) {
         # the boring 3.14
