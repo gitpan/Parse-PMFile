@@ -10,7 +10,7 @@ use File::Spec ();
 use File::Temp ();
 use POSIX ':sys_wait_h';
 
-our $VERSION = '0.10';
+our $VERSION = '0.11';
 our $VERBOSE = 0;
 our $ALLOW_DEV_VERSION = 0;
 
@@ -71,7 +71,10 @@ sub parse {
         if ($pp->{version} && $pp->{version} =~ /^\{.*\}$/) { # JSON parser error
             my $err = JSON::PP::decode_json($pp->{version});
             if ($err->{x_normalize}) {
-                $errors{$package} = {normalize => $err->{version}};
+                $errors{$package} = {
+                    normalize => $err->{version},
+                    infile => $pp->{infile},
+                };
                 $pp->{version} = "undef";
                 next;
             } elsif ($err->{openerr}) {
@@ -79,7 +82,10 @@ sub parse {
                               qq{Parse::PMFile was not able to
         read the file. It issued the following error: C< $err->{r} >},
                               );
-                $errors{$package} = {open => $err->{r}};
+                $errors{$package} = {
+                    open => $err->{r},
+                    infile => $pp->{infile},
+                };
             } else {
                 $self->_verbose(1, 
                               qq{Parse::PMFile was not able to
@@ -93,7 +99,10 @@ sub parse {
         another) workaround against "Safe" limitations.)},
 
                               );
-                $errors{$package} = {parse_version => $err->{line}};
+                $errors{$package} = {
+                    parse_version => $err->{line},
+                    infile => $err->{file},
+                };
             }
             delete $ppp->{$package};
             next;
@@ -148,9 +157,9 @@ sub _parse_version {
 
             my($comp) = Safe->new("_pause::mldistwatch");
             my $eval = qq{
-              local(\$^W) = 0;
-              Parse::PMFile::_parse_version_safely("$pmcp");
-              };
+                local(\$^W) = 0;
+                Parse::PMFile::_parse_version_safely("$pmcp");
+            };
             $comp->permit("entereval"); # for MBARBON/Module-Info-0.30.tar.gz
             $comp->share("*Parse::PMFile::_parse_version_safely");
             $comp->share("*version::new");
@@ -169,9 +178,10 @@ sub _parse_version {
                 my $err = $@;
                 # warn ">>>>>>>err[$err]<<<<<<<<";
                 if (ref $err) {
-                    if ($err->{line} =~ /[\$*]([\w\:\']*)\bVERSION\b.*?\=(.*)/) {
+                    if ($err->{line} =~ /([\$*])([\w\:\']*)\bVERSION\b.*?\=(.*)/) {
                         local($^W) = 0;
-                        $v = $comp->reval($2);
+                        $v = $comp->reval($3);
+                        $v = $$v if $1 eq '*';
                     }
                     if ($@ or !$v) {
                         $self->_verbose(1, sprintf("reval failed: err[%s] for eval[%s]",
@@ -273,7 +283,7 @@ sub _packages_per_pmfile {
                 if ($self->_version_from_meta_ok) {
                     my $provides = $self->{META_CONTENT}{provides};
                     if (exists $provides->{$pkg}) {
-                        if (exists $provides->{$pkg}{version}) {
+                        if (defined $provides->{$pkg}{version}) {
                             my $v = $provides->{$pkg}{version};
                             if ($v =~ /[_\s]/ && !$ALLOW_DEV_VERSION){   # ignore developer releases and "You suck!"
                                 next PLINE;
@@ -337,17 +347,17 @@ sub _packages_per_pmfile {
             last if /^__(?:END|DATA)__\b/; # fails on quoted __END__ but this is rare -> __END__ in the middle of a line is rarer
             chop;
             # next unless /\$(([\w\:\']*)\bVERSION)\b.*\=/;
-            next unless /([\$*])(([\w\:\']*)\bVERSION)\b.*\=/;
+            next unless /([\$*])(([\w\:\']*)\bVERSION)\b.*(?<![!><=])\=(?![=>])/;
             my $current_parsed_line = $_;
             my $eval = qq{
-          package #
-              ExtUtils::MakeMaker::_version;
+                package #
+                    ExtUtils::MakeMaker::_version;
 
-          local $1$2;
-          \$$2=undef; do {
-              $_
-          }; \$$2
-      };
+                local $1$2;
+                \$$2=undef; do {
+                    $_
+                }; \$$2
+            };
             local $^W = 0;
             local $SIG{__WARN__} = sub {};
             $result = eval($eval);
