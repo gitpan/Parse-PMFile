@@ -10,7 +10,7 @@ use File::Spec ();
 use File::Temp ();
 use POSIX ':sys_wait_h';
 
-our $VERSION = '0.12';
+our $VERSION = '0.13';
 our $VERBOSE = 0;
 our $ALLOW_DEV_VERSION = 0;
 
@@ -168,6 +168,7 @@ sub _parse_version {
                                         '*Exporter::',
                                         '*DynaLoader::']);
             $comp->share_from('version', ['&qv']);
+            $comp->permit(":base_math"); # atan2 (Acme-Pi)
             # $comp->permit("require"); # no strict!
             $comp->deny(qw/enteriter iter unstack goto/); # minimum protection against Acme::BadExample
             {
@@ -250,7 +251,7 @@ sub _packages_per_pmfile {
                       \bpackage\s+
                       ([\w\:\']+)
                       \s*
-                      (?: $ | [\}\;] | \s+($version::STRICT) )
+                      (?: $ | [\}\;] | \{ | \s+($version::STRICT) )
                     }x) {
             $pkg = $1;
             $strict_version = $2;
