@@ -10,7 +10,7 @@ use File::Spec ();
 use File::Temp ();
 use POSIX ':sys_wait_h';
 
-our $VERSION = '0.14';
+our $VERSION = '0.15';
 our $VERBOSE = 0;
 our $ALLOW_DEV_VERSION = 0;
 
@@ -48,6 +48,7 @@ sub parse {
     #
 
     my ($package, %errors);
+    my %checked_in;
   DBPACK: foreach $package (@keys_ppp) {
         # this part is taken from PAUSE::package::examine_pkg
         if ($package !~ /^\w[\w\:\']*\w?\z/
@@ -119,9 +120,10 @@ sub parse {
                 next;            # don't screw up 02packages
             }
         }
+        $checked_in{$package} = $ppp->{$package};
     }                       # end foreach package
 
-    return (wantarray && %errors) ? ($ppp, \%errors) : $ppp;
+    return (wantarray && %errors) ? (\%checked_in, \%errors) : \%checked_in;
 }
 
 # from PAUSE::pmfile;

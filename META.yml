@@ -26,4 +26,4 @@ requires:
   version: 0.79
 resources:
   repository: https://github.com/charsbar/Parse-PMFile
-version: 0.14
+version: 0.15
