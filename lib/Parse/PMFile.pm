@@ -10,9 +10,10 @@ use File::Spec ();
 use File::Temp ();
 use POSIX ':sys_wait_h';
 
-our $VERSION = '0.16';
+our $VERSION = '0.17';
 our $VERBOSE = 0;
 our $ALLOW_DEV_VERSION = 0;
+our $FORK = 0;
 
 sub new {
     my ($class, $meta) = @_;
@@ -170,8 +171,11 @@ sub _parse_version {
 
         # XXX: do we need to fork as PAUSE does?
         # or, is alarm() just fine?
-        my $pid = fork();
-        die "Can't fork: $!" unless defined $pid;
+        my $pid;
+        if ($FORK) {
+            $pid = fork();
+            die "Can't fork: $!" unless defined $pid;
+        }
         if ($pid) {
             waitpid($pid, 0);
             if (open my $fh, '<', $tmpfile) {
@@ -225,12 +229,18 @@ sub _parse_version {
             } else {
                 $v = "";
             }
-            open my $fh, '>:utf8', $tmpfile;
-            print $fh $v;
-            exit 0;
+            if ($FORK) {
+                open my $fh, '>:utf8', $tmpfile;
+                print $fh $v;
+                exit 0;
+            } else {
+                utf8::encode($v);
+                # undefine empty $v as if read from the tmpfile
+                $v = undef if defined $v && !length $v;
+            }
         }
     }
-    unlink $tmpfile if -e $tmpfile;
+    unlink $tmpfile if $FORK && -e $tmpfile;
 
     return $self->_normalize_version($v);
 }
@@ -755,6 +765,10 @@ Parse::PMFile usually ignores a version with an underscore as PAUSE does (becaus
 =head2 $VERBOSE
 
 Set this to true if you need to know some details.
+
+=head2 $FORK
+
+As of version 0.17, Parse::PMFile stops forking while parsing a version for better performance. Parse::PMFile should return the same result no matter how this variable is set, but if you do care, set this to true to fork as PAUSE does.
 
 =head1 SEE ALSO
 
