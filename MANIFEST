@@ -1,4 +1,5 @@
 Changes
+cpanfile
 lib/Parse/PMFile.pm
 Makefile.PL
 MANIFEST			This list of files
@@ -12,6 +13,7 @@ t/33_ignore_variable_named_package.t
 t/34_math_version.t
 t/40_package_versions.t
 t/50_no_index.t
+t/80_version_overload.t
 t/99_pod.t
 t/99_podcoverage.t
 META.yml                                 Module YAML meta-data (added by MakeMaker)

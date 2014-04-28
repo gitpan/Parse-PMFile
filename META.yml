@@ -3,10 +3,11 @@ abstract: 'parses .pm file as PAUSE does'
 author:
   - 'Kenichi Ishigaki <ishigaki@cpan.org>'
 build_requires:
+  ExtUtils::MakeMaker: '0'
   Test::More: '0.88'
 configure_requires:
-  ExtUtils::MakeMaker: '0'
-dynamic_config: 1
+  ExtUtils::MakeMaker::CPANfile: '0.06'
+dynamic_config: 0
 generated_by: 'ExtUtils::MakeMaker version 6.76, CPAN::Meta::Converter version 2.140640'
 license: perl
 meta-spec:
@@ -26,4 +27,4 @@ requires:
   version: '0.79'
 resources:
   repository: https://github.com/charsbar/Parse-PMFile
-version: '0.17'
+version: '0.18'
