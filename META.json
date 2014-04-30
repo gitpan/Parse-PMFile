@@ -38,7 +38,7 @@
             "File::Temp" : "0",
             "JSON::PP" : "2.00",
             "Safe" : "0",
-            "version" : "0.79"
+            "version" : "0.83"
          }
       }
    },
@@ -48,5 +48,5 @@
          "url" : "https://github.com/charsbar/Parse-PMFile"
       }
    },
-   "version" : "0.18"
+   "version" : "0.19"
 }
