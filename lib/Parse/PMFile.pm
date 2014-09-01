@@ -10,14 +10,14 @@ use File::Spec ();
 use File::Temp ();
 use POSIX ':sys_wait_h';
 
-our $VERSION = '0.20';
+our $VERSION = '0.21';
 our $VERBOSE = 0;
 our $ALLOW_DEV_VERSION = 0;
 our $FORK = 0;
 
 sub new {
-    my ($class, $meta) = @_;
-    bless {META_CONTENT => $meta}, $class;
+    my ($class, $meta, $opts) = @_;
+    bless {%{ $opts || {} }, META_CONTENT => $meta}, $class;
 }
 
 # from PAUSE::pmfile::examine_fio
@@ -40,7 +40,7 @@ sub parse {
         $self->{VERSION} = $version;
         if ($self->{VERSION} =~ /^\{.*\}$/) {
             # JSON error message
-        } elsif ($self->{VERSION} =~ /[_\s]/ && !$ALLOW_DEV_VERSION){   # ignore developer releases and "You suck!"
+        } elsif ($self->{VERSION} =~ /[_\s]/ && !$self->{ALLOW_DEV_VERSION} && !$ALLOW_DEV_VERSION){   # ignore developer releases and "You suck!"
             return;
         }
     }
@@ -70,7 +70,10 @@ sub parse {
             next;
         }
 
-        # Can't do perm_check() here.
+        if ($self->{USERID} && $self->{PERMISSIONS} && !$self->_perm_check($package)) {
+            delete $ppp->{$package};
+            next;
+        }
 
         # Check that package name matches case of file name
         {
@@ -150,6 +153,17 @@ sub parse {
     return (wantarray && %errors) ? (\%checked_in, \%errors) : \%checked_in;
 }
 
+sub _perm_check {
+    my ($self, $package) = @_;
+    my $userid = $self->{USERID};
+    my $module = $self->{PERMISSIONS}->module_permissions($package);
+    return 1 if !$module; # not listed yet
+    return 1 if defined $module->m && $module->m eq $userid;
+    return 1 if defined $module->f && $module->f eq $userid;
+    return 1 if defined $module->c && grep {$_ eq $userid} @{$module->c};
+    return;
+}
+
 # from PAUSE::pmfile;
 sub _parse_version {
     my $self = shift;
@@ -172,7 +186,7 @@ sub _parse_version {
         # XXX: do we need to fork as PAUSE does?
         # or, is alarm() just fine?
         my $pid;
-        if ($FORK) {
+        if ($self->{FORK} || $FORK) {
             $pid = fork();
             die "Can't fork: $!" unless defined $pid;
         }
@@ -229,7 +243,7 @@ sub _parse_version {
             } else {
                 $v = "";
             }
-            if ($FORK) {
+            if ($self->{FORK} || $FORK) {
                 open my $fh, '>:utf8', $tmpfile;
                 print $fh $v;
                 exit 0;
@@ -242,7 +256,7 @@ sub _parse_version {
             }
         }
     }
-    unlink $tmpfile if $FORK && -e $tmpfile;
+    unlink $tmpfile if ($self->{FORK} || $FORK) && -e $tmpfile;
 
     return $self->_normalize_version($v);
 }
@@ -354,7 +368,7 @@ sub _packages_per_pmfile {
                     if (exists $provides->{$pkg}) {
                         if (defined $provides->{$pkg}{version}) {
                             my $v = $provides->{$pkg}{version};
-                            if ($v =~ /[_\s]/ && !$ALLOW_DEV_VERSION){   # ignore developer releases and "You suck!"
+                            if ($v =~ /[_\s]/ && !$self->{ALLOW_DEV_VERSION} && !$ALLOW_DEV_VERSION){   # ignore developer releases and "You suck!"
                                 next PLINE;
                             }
 
@@ -631,7 +645,7 @@ sub _version_from_meta_ok {
 
 sub _verbose {
     my($self,$level,@what) = @_;
-    warn @what if $level <= $VERBOSE;
+    warn @what if $level <= ($self->{VERBOSE} || $VERBOSE);
 }
 
 # all of the following methods are stripped from CPAN::Version
@@ -767,15 +781,21 @@ Parse::PMFile - parses .pm file as PAUSE does
 
     use Parse::PMFile;
 
-    my $parser = Parse::PMFile->new($metadata);
+    my $parser = Parse::PMFile->new($metadata, {VERBOSE => 1});
     my $packages_info = $parser->parse($pmfile);
 
     # if you need info about invalid versions
     my ($packages_info, $errors) = $parser->parse($pmfile);
 
+    # to check permissions
+    my $parser = Parse::PMFile->new($metadata, {
+        USERID => 'ISHIGAKI',
+        PERMISSIONS => PAUSE::Permissions->new,
+    });
+
 =head1 DESCRIPTION
 
-The most of the code of this module is taken from the PAUSE code as of April 2013 almost verbatim. Thus, the heart of this module should be quite stable. However, I made it not to use pipe ("-|") as well as I stripped database-related code and permission check. If you encounter any issue, that's most probably because of my modification.
+The most of the code of this module is taken from the PAUSE code as of April 2013 almost verbatim. Thus, the heart of this module should be quite stable. However, I made it not to use pipe ("-|") as well as I stripped database-related code. If you encounter any issue, that's most probably because of my modification.
 
 This module doesn't provide features to extract a distribution or parse meta files intentionally.
 
@@ -783,27 +803,35 @@ This module doesn't provide features to extract a distribution or parse meta fil
 
 =head2 new
 
-creates an object. You can also pass a hashref taken from META.yml etc.
+creates an object. You can also pass a hashref taken from META.yml etc, and an optional hashref. Options are:
+
+=over 4
+
+=item ALLOW_DEV_VERSION
+
+Parse::PMFile usually ignores a version with an underscore as PAUSE does (because it's for a developer release, and should not be indexed). Set this option to true if you happen to need to keep such a version for better analysis.
+
+=item VERBOSE
+
+Set this to true if you need to know some details.
+
+=item FORK
+
+As of version 0.17, Parse::PMFile stops forking while parsing a version for better performance. Parse::PMFile should return the same result no matter how this option is set, but if you do care, set this to true to fork as PAUSE does.
+
+=item USERID, PERMISSIONS
+
+As of version 0.21, Parse::PMFile checks permissions of a package if both USERID and PERMISSIONS (which should be an instance of L<PAUSE::Permissions>) are provided. Unauthorized packages are removed.
+
+=back
 
 =head2 parse
 
 takes a path to a .pm file, and returns a hash reference that holds information for package(s) found in the file.
 
-=head1 GLOBAL VARIABLES
-
-=head2 $ALLOW_DEV_VERSION
-
-Parse::PMFile usually ignores a version with an underscore as PAUSE does (because it's for a developer release, and should not be indexed). Set this variable to true if you happen to need to keep such a version for better analysis.
-
-=head2 $VERBOSE
-
-Set this to true if you need to know some details.
-
-=head2 $FORK
-
-As of version 0.17, Parse::PMFile stops forking while parsing a version for better performance. Parse::PMFile should return the same result no matter how this variable is set, but if you do care, set this to true to fork as PAUSE does.
-
 =head1 SEE ALSO
+
+L<Parse::LocalDistribution>, L<PAUSE::Permissions>
 
 Most part of this module is derived from PAUSE and CPAN::Version.
 
