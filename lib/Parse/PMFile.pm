@@ -10,7 +10,7 @@ use File::Spec ();
 use File::Temp ();
 use POSIX ':sys_wait_h';
 
-our $VERSION = '0.21';
+our $VERSION = '0.22';
 our $VERBOSE = 0;
 our $ALLOW_DEV_VERSION = 0;
 our $FORK = 0;
@@ -645,7 +645,7 @@ sub _version_from_meta_ok {
 
 sub _verbose {
     my($self,$level,@what) = @_;
-    warn @what if $level <= ($self->{VERBOSE} || $VERBOSE);
+    warn @what if $level <= ((ref $self && $self->{VERBOSE}) || $VERBOSE);
 }
 
 # all of the following methods are stripped from CPAN::Version
