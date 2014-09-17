@@ -10,7 +10,7 @@ use File::Spec ();
 use File::Temp ();
 use POSIX ':sys_wait_h';
 
-our $VERSION = '0.24';
+our $VERSION = '0.25';
 our $VERBOSE = 0;
 our $ALLOW_DEV_VERSION = 0;
 our $FORK = 0;
@@ -279,7 +279,11 @@ sub _restore_overloaded_stuff {
         *{'version::(bool'} = \&version::vxs::boolean;
     # version PP in CPAN
     } elsif (version->isa('version::vpp')) {
-        { package charstar; overload->import }
+        {
+            package # hide from PAUSE
+                charstar;
+            overload->import;
+        }
         *{'version::(""'} = \&version::vpp::stringify;
         *{'version::(0+'} = \&version::vpp::numify;
         *{'version::(cmp'} = \&version::vpp::vcmp;
