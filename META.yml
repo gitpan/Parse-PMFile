@@ -4,6 +4,7 @@ author:
   - 'Kenichi Ishigaki <ishigaki@cpan.org>'
 build_requires:
   ExtUtils::MakeMaker: '0'
+  File::Temp: '0.19'
   Test::More: '0.88'
 configure_requires:
   ExtUtils::MakeMaker::CPANfile: '0.06'
@@ -21,10 +22,9 @@ no_index:
 requires:
   Dumpvalue: '0'
   File::Spec: '0'
-  File::Temp: '0'
   JSON::PP: '2.00'
   Safe: '0'
   version: '0.83'
 resources:
   repository: https://github.com/charsbar/Parse-PMFile
-version: '0.26'
+version: '0.27'
